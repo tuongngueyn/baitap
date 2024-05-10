@@ -1,0 +1,16 @@
+name: testaa
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=2.12.0 <3.0.0'  # Tôi đã cập nhật SDK version vì phiên bản cũ không hỗ trợ `cupertino_icons`
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^0.13.3
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
