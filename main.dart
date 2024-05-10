@@ -1,181 +1,214 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(MyApp());
 }
 
-class Contact {
-  final String name;
-  final String phoneNumber;
-  final String address;
-  final String imageUrl;
+class Weather {
+  final String description;
+  final double temperature;
+  final double humidity;
+  final double windSpeed;
+  final IconData weatherIcon;
 
-  Contact({
-    required this.name,
-    required this.phoneNumber,
-    required this.address,
-    this.imageUrl = '',
+  Weather({
+    required this.description,
+    required this.temperature,
+    required this.humidity,
+    required this.windSpeed,
+    required this.weatherIcon,
   });
+
+  factory Weather.fromJson(Map<String, dynamic> json) {
+    return Weather(
+      description: json['weather'][0]['description'],
+      temperature: (json['main']['temp'] as num).toDouble(),
+      humidity: (json['main']['humidity'] as num).toDouble(),
+      windSpeed: (json['wind']['speed'] as num).toDouble(),
+      weatherIcon: _getWeatherIcon(json['weather'][0]['description']),
+    );
+  }
+
+  static IconData _getWeatherIcon(String description) {
+    if (description.contains('nắng')) {
+      return Icons.wb_sunny;
+    } else if (description.contains('mây')) {
+      return Icons.cloud;
+    } else if (description.contains('mưa')) {
+      return Icons.beach_access;
+    } else {
+      return Icons.wb_cloudy;
+    }
+  }
 }
 
-class CallLog {
-  final String callerName;
-  final String callerPhoneNumber;
-  final String callTime;
-
-  CallLog({
-    required this.callerName,
-    required this.callerPhoneNumber,
-    required this.callTime,
-  });
+class MyApp extends StatefulWidget {
+  @override
+  _MyAppState createState() => _MyAppState();
 }
 
-class MyApp extends StatelessWidget {
-  final List<Contact> contacts = [
-    Contact(
-        name: 'tuong',
-        phoneNumber: '1234567890',
-        address: 'bac ninh',
-        imageUrl:
-            'https://noithatbinhminh.com.vn/wp-content/uploads/2022/08/anh-dep-40.jpg.webp'),
-    Contact(
-        name: 'truong',
-        phoneNumber: '4567890123',
-        address: 'nam dinh',
-        imageUrl:
-            'https://www.elle.vn/wp-content/uploads/2017/07/25/hinh-anh-dep-1.jpg'),
-    Contact(
-        name: 'toan',
-        phoneNumber: '7890123456',
-        address: 'phu tho',
-        imageUrl:
-            'https://dulichviet.com.vn/images/bandidau/danh-sach-nhung-buc-anh-viet-nam-lot-top-anh-dep-the-gioi.jpg'),
-  ];
+class _MyAppState extends State<MyApp> {
+  late Weather _weather;
+  bool _isLoading = true;
+  String _errorMessage = '';
 
-  final List<CallLog> callLogs = [
-    CallLog(
-        callerName: 'kiên',
-        callerPhoneNumber: '0987654321',
-        callTime: 'tuần trước'),
-    CallLog(
-        callerName: 'truong',
-        callerPhoneNumber: '0123456789',
-        callTime: 'hôm nay '),
-    CallLog(
-        callerName: 'biet',
-        callerPhoneNumber: '0123456789',
-        callTime: '2 h trước '),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    fetchWeatherData();
+  }
+
+  Future<void> fetchWeatherData() async {
+    try {
+      const apiKey = '4cba0058b7fff73af70f44530e9e4302';
+      final response = await http.get(Uri.parse(
+          'https://api.openweathermap.org/data/2.5/weather?q=London&appid=$apiKey&units=metric'));
+
+      if (response.statusCode == 200) {
+        final decodedData = jsonDecode(response.body);
+        final weather = Weather.fromJson(decodedData);
+        setState(() {
+          _weather = weather;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Không thể tải dữ liệu thời tiết';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Có lỗi xảy ra: $e';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Phonebook',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: ContactListScreen(contacts: contacts, callLogs: callLogs),
-    );
-  }
-}
-
-class ContactListScreen extends StatelessWidget {
-  final List<Contact> contacts;
-  final List<CallLog> callLogs;
-
-  ContactListScreen({required this.contacts, required this.callLogs});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('quay số'),
-      ),
-      body: ListView.builder(
-        itemCount: contacts.length,
-        itemBuilder: (context, index) {
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundImage: NetworkImage(contacts[index].imageUrl),
-              child: Text(contacts[index].name[0]),
-            ),
-            title: Text(contacts[index].name),
-            subtitle: Text(contacts[index].phoneNumber),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ContactDetailScreen(
-                      contact: contacts[index], callLogs: callLogs),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-class ContactDetailScreen extends StatelessWidget {
-  final Contact contact;
-  final List<CallLog> callLogs;
-
-  ContactDetailScreen({required this.contact, required this.callLogs});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(contact.name),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (contact.imageUrl.isNotEmpty)
-              Image.network(
-                contact.imageUrl,
-                height: 200,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            SizedBox(height: 20),
-            Text(
-              'số:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text(contact.phoneNumber),
-            SizedBox(height: 10),
-            Text(
-              'địa chit:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text(contact.address),
-            SizedBox(height: 20),
-            Text(
-              'nhật ký :',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Expanded(
-              child: ListView.builder(
-                itemCount: callLogs.length,
-                itemBuilder: (context, index) {
-                  return ListTile(
-                    title: Text(callLogs[index].callerName),
-                    subtitle: Text(callLogs[index].callerPhoneNumber),
-                    trailing: Text(callLogs[index].callTime),
-                    onTap: () {
-                      // Do something when tapped
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text('Ứng dụng thời tiết'),
         ),
+        body: _isLoading
+            ? Center(
+          child: CircularProgressIndicator(),
+        )
+            : _errorMessage.isNotEmpty
+            ? Center(child: Text(_errorMessage))
+            : WeatherDisplay(weather: _weather),
       ),
+    );
+  }
+}
+
+class WeatherDisplay extends StatelessWidget {
+  final Weather? weather;
+
+  const WeatherDisplay({
+    Key? key,
+    required this.weather,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [
+        Container(
+          padding: EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade700, Colors.blue.shade300],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.5),
+                spreadRadius: 5,
+                blurRadius: 7,
+                offset: Offset(0, 3), // changes position of shadow
+              ),
+            ],
+          ),
+          child: Center(
+            child: weather != null
+                ? Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Dự báo thời tiết',
+                  style: TextStyle(
+                    fontSize: 40,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                SizedBox(height: 30),
+                Container(
+                  width: 200,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.3),
+                  ),
+                  child: Icon(
+                    weather!.weatherIcon,
+                    size: 150,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 30),
+                Text(
+                  weather!.description,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 15),
+                Text(
+                  '${weather!.temperature}°C',
+                  style: TextStyle(
+                    fontSize: 28,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 15),
+                Text(
+                  'Độ ẩm: ${weather!.humidity}%',
+                  style: TextStyle(
+                    fontSize: 28,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 15),
+                Text(
+                  'Tốc độ gió: ${weather!.windSpeed} m/s',
+                  style: TextStyle(
+                    fontSize: 28,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            )
+                : Text(
+              'Không có dữ liệu thời tiết',
+              style: TextStyle(
+                fontSize: 28,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
